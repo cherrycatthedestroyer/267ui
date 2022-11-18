@@ -1,21 +1,26 @@
 import processing.sound.*; //<>//
-
 import gifAnimation.*;
 
+//press spacebar to play for now//
+
+//main states
 int currentState, state0=0, state1=1, state2=2;
+//starting fade in animation
 int startFade;
 
+//sounds
 SoundFile ship, comms, beep, hum, blast;
 
+//graphics
 PImage frame0,frame1,frame2,frame3,bgImg;
 int frameWidth,frameHeight,centerX,centerY;
 Gif grain,pole,poleOn;
 
 PFont font;
 
+//pole animations and positions
 boolean descending,poleHit;
 int fade, poleStartFade;
-
 boolean [] poleDescenders, poleHits;
 int [] poleFades, poleAngles;
 int [][] polePositions = {{-150,0},{+150,0},{0,-150}};
@@ -93,7 +98,8 @@ void draw(){
   handleStates();
 }
 
-//controls, this function can be changed into a function that listens for signals from the arduino serial connection
+//controls, this function can be changed into a function that listens for signals from the arduino serial connection, just change the name and keep it in the draw function
+//because it wont be callback anymore
 void keyReleased() {
   if (key == CODED) {
     if (keyCode == LEFT) {
@@ -115,6 +121,7 @@ void keyReleased() {
       blast.play();
     }
   }
+  //spacebar to play for now
   else if (keyCode == ' '){
     currentState=state1;
     beep.play();
@@ -146,16 +153,16 @@ String formatScore(int inScore){
 
 void drawScore(int inFade, int inState){
   pushMatrix();
+  
+  textFont(font, 60);
+  textAlign(CENTER);
+  
   if (inState==0){
     fill(226,206,153,inFade);
-    textFont(font, 60);
-    textAlign(CENTER);
     text("Play game", displayWidth/2 , displayHeight/2 + 230); 
   }
   else if (inState==1){
     fill(222,49,33,inFade);
-    textFont(font, 60);
-    textAlign(CENTER);
     text(formatScore(score), displayWidth/2 , displayHeight/2 + 230); 
   }
   noFill();
@@ -185,7 +192,7 @@ void drawPoles(int inState){
   }
 }
 
-//listens for when pole is hit
+//listens for when pole is hit and animates its flash
 void poleHitEvent(){
   for (int i=0; i<3;i++){
     if (poleHits[i] == true){
@@ -215,8 +222,8 @@ void poleHitEvent(){
   }
 }
 
-//tried to animate a wobble but it did something else that looks more accurate to the targeting system
-//idk actually know what this is doing but the way it works had a suprising pleasant effect so I'm keeping it
+//tried to animate a wobble for the poles but it did something else that looks more accurate to the targeting system
+//idk actually know what this is doing but the way it works had a suprising pleasant effect so I'm keeping it, feel free to try actually make them wobble when hit
 int wobble(int inAngle){
   if (abs(inAngle)<PI/3){
     inAngle+=inAngle;
@@ -239,7 +246,7 @@ void drawScreenBottom(){
 void drawScreenTop(){
   pushMatrix();
   translate(displayWidth/2 -frameWidth/2,displayHeight/2 -frameHeight/2);
-  
+
   pushMatrix();
   
   pushMatrix();
