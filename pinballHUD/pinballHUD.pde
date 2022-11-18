@@ -18,6 +18,7 @@ int fade, poleStartFade;
 
 boolean [] poleDescenders, poleHits;
 int [] poleFades, poleAngles;
+int [][] polePositions = {{-150,0},{+150,0},{0,-150}};
 
 int score;
 
@@ -35,7 +36,7 @@ void setup(){
   hum = new SoundFile(this, "assets/humOn.mp3");
   blast = new SoundFile(this, "assets/blaster.mp3");
   comms.amp(0.2);
-  ship.amp(4);
+  ship.amp(0.6);
   comms.loop();
   ship.loop();
   
@@ -92,6 +93,36 @@ void draw(){
   handleStates();
 }
 
+//controls, this function can be changed into a function that listens for signals from the arduino serial connection
+void keyReleased() {
+  if (key == CODED) {
+    if (keyCode == LEFT) {
+      if (poleHits[0]==false){
+        poleHits[0]=true;
+      }
+      blast.play();
+    } 
+    else if (keyCode == RIGHT) {
+      if (poleHits[1]==false){
+        poleHits[1]=true;
+      }
+      blast.play();
+    }
+    else if (keyCode == UP) {
+      if (poleHits[2]==false){
+        poleHits[2]=true;
+      }
+      blast.play();
+    }
+  }
+  else if (keyCode == ' '){
+    currentState=state1;
+    beep.play();
+    hum.play();
+  }
+}
+
+//All the ui code
 void handleStates(){
   if (currentState==0){
     if (startFade<=255){
@@ -134,24 +165,27 @@ void drawScore(int inFade, int inState){
   popMatrix();
 }
 
-void drawPoles(int inState){
+void drawPoles(int inState){  
   if (inState==1){
     pushMatrix();
     tint(255,poleStartFade);
-    rotate(poleAngles[0]);
-    image(pole, displayWidth/2 - 146/2 - 150, displayHeight/2 - 179/2);
-    rotate(-poleAngles[0]);
-    rotate(poleAngles[1]);
-    image(pole, displayWidth/2 - 146/2 + 150, displayHeight/2 - 179/2);
-    rotate(-poleAngles[1]);
-    rotate(poleAngles[2]);
-    image(pole, displayWidth/2 - 146/2, displayHeight/2 - 179/2 - 150);
-    rotate(-poleAngles[2]);
+    for (int i=0;i<3;i++){
+      rotate(poleAngles[i]);
+      image(pole, displayWidth/2 - 146/2 + polePositions[i][0], displayHeight/2 - 179/2 + polePositions[i][1]);
+      rotate(-poleAngles[i]);
+      //red pole flashes
+      if (poleHits[i] == true){
+        tint(255,poleFades[i]);
+        image(poleOn, displayWidth/2 - 146/2 + polePositions[i][0], displayHeight/2 - 179/2 + polePositions[i][1]);
+        tint(255,255);
+      }
+    }
     tint(255,255);
     popMatrix();
   }
 }
 
+//listens for when pole is hit
 void poleHitEvent(){
   for (int i=0; i<3;i++){
     if (poleHits[i] == true){
@@ -179,29 +213,9 @@ void poleHitEvent(){
       }
     }
   }
-  
-  pushMatrix();
-  rotate(poleAngles[0]);
-  tint(255,poleFades[0]);
-  image(poleOn, displayWidth/2 - 146/2 - 150, displayHeight/2 - 179/2);
-  tint(255,255);
-  popMatrix();
-  
-  pushMatrix();
-  tint(255,poleFades[1]);
-  rotate(poleAngles[1]);
-  image(poleOn, displayWidth/2 - 146/2 + 150,displayHeight/2 - 179/2);
-  tint(255,255);
-  popMatrix();
-  
-  pushMatrix();
-  tint(255,poleFades[2]);
-  rotate(poleAngles[2]);
-  image(poleOn, displayWidth/2 - 146/2,displayHeight/2 - 179/2 - 150);
-  tint(255,255);
-  popMatrix();
 }
 
+//tried to animate a wobble but it did something else that looks more accurate to the targeting system
 //idk actually know what this is doing but the way it works had a suprising pleasant effect so I'm keeping it
 int wobble(int inAngle){
   if (abs(inAngle)<PI/3){
@@ -256,32 +270,4 @@ void drawBackground(){
   tint(100,100,100);
   image(bgImg,250,30);
   popMatrix();
-}
-
-void keyReleased() {
-  if (key == CODED) {
-    if (keyCode == LEFT) {
-      if (poleHits[0]==false){
-        poleHits[0]=true;
-      }
-      blast.play();
-    } 
-    else if (keyCode == RIGHT) {
-      if (poleHits[1]==false){
-        poleHits[1]=true;
-      }
-      blast.play();
-    }
-    else if (keyCode == UP) {
-      if (poleHits[2]==false){
-        poleHits[2]=true;
-      }
-      blast.play();
-    }
-  }
-  else if (keyCode == ' '){
-    currentState=state1;
-    beep.play();
-    hum.play();
-  }
 }
