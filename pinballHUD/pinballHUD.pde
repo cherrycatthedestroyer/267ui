@@ -1,15 +1,21 @@
-import processing.sound.*; //<>//
+import processing.serial.*; //<>//
+import processing.sound.*;
 import gifAnimation.*;
 
 //press spacebar to play for now//
 
+Serial myPort;
+float light=0;
+float pressure=0;
+int motion=0;
+
 //main states
-int currentState, state0=0, state1=1, state2=2;
+int currentState, state0=0, state1=1, state2=2, state3=3, state4=4;
 //starting fade in animation
 int startFade;
 
 //sounds
-SoundFile ship, comms, beep, hum, blast;
+SoundFile ship, comms, beep, hum, blast, error, ballGone;
 
 //graphics
 PImage frame0,frame1,frame2,frame3,bgImg;
@@ -25,25 +31,36 @@ boolean [] poleDescenders, poleHits;
 int [] poleFades, poleAngles;
 int [][] polePositions = {{-150,0},{+150,0},{0,-150}};
 
+boolean ballLost;
+boolean cheating;
+
 int score;
+int penaltyTimer=0;
 
 void setup(){
   fullScreen();
   background(0);
   
+  myPort = new Serial(this,Serial.list()[0],9600);
+  myPort.bufferUntil('&');
+  
   currentState=0;
   
   startFade=0;
+  
   
   ship = new SoundFile(this, "assets/interior.mp3");
   comms = new SoundFile(this, "assets/comms.mp3");
   beep = new SoundFile(this, "assets/beep.wav");
   hum = new SoundFile(this, "assets/humOn.mp3");
   blast = new SoundFile(this, "assets/blaster.mp3");
+  error = new SoundFile(this, "assets/error.mp3");
+  ballGone = new SoundFile(this, "assets/ballGone.mp3");
   comms.amp(0.2);
   ship.amp(0.6);
   comms.loop();
   ship.loop();
+  
   
   bgImg = loadImage("assets/background.png");
   frame0 = loadImage("assets/frame0.png");
@@ -82,6 +99,9 @@ void setup(){
     poleAngles[i]=0;
   }
   
+  ballLost = false;
+  cheating = false;
+  
   smooth(4);
 }
 
@@ -94,8 +114,32 @@ void draw(){
   drawScore(startFade,currentState);
   tint(255,255);
   drawScreenTop();
-  
+  eventListener();
   handleStates();
+}
+
+void eventListener(){
+  if (light<190){
+    ballLost=true;
+  }
+  else if (pressure<254){
+    poleHits[0]=true;
+    blast.play();
+  }
+  else if (motion==1){
+    cheating=true;
+  }
+}
+
+void serialEvent(Serial myPort){
+  String inString = myPort.readStringUntil('&');
+  String[] lightStr = splitTokens(inString,"a");
+  String[] pressureStr = splitTokens(inString,"b");
+  String[] motionStr = splitTokens(inString,"c");
+  
+  light = map(int(lightStr[0]),0,1023,0,255);
+  pressure = map(int(pressureStr[1]),0,1023,0,255);
+  motion=int(motionStr[1]);
 }
 
 //controls, this function can be changed into a function that listens for signals from the arduino serial connection, just change the name and keep it in the draw function
@@ -106,19 +150,16 @@ void keyReleased() {
       if (poleHits[0]==false){
         poleHits[0]=true;
       }
-      blast.play();
     } 
     else if (keyCode == RIGHT) {
       if (poleHits[1]==false){
         poleHits[1]=true;
       }
-      blast.play();
     }
     else if (keyCode == UP) {
       if (poleHits[2]==false){
         poleHits[2]=true;
       }
-      blast.play();
     }
   }
   //spacebar to play for now
@@ -139,6 +180,35 @@ void handleStates(){
   else if (currentState==1){
     if (poleStartFade<=255){
       poleStartFade+=5;
+    }
+    
+    else if (ballLost==true){
+      currentState=3;
+      ballGone.play();
+    }
+    
+    else if (cheating==true){
+      currentState=4;
+      error.play();
+    }
+  }
+  else if (currentState==3){
+    if (light>190){
+      currentState=1;
+      ballLost=false;
+    }
+  }
+  else if (currentState==4){
+    if (penaltyTimer<40){
+      penaltyTimer++;
+    }
+    else{
+      if(motion!=1){
+        currentState=1;
+        cheating=false;
+        score=0;
+        penaltyTimer=0;
+      }
     }
   }
 }
@@ -164,6 +234,14 @@ void drawScore(int inFade, int inState){
   else if (inState==1){
     fill(222,49,33,inFade);
     text(formatScore(score), displayWidth/2 , displayHeight/2 + 230); 
+  }
+  else if (inState==3){
+    fill(226,206,153);
+    text("Ball lost", displayWidth/2 , displayHeight/2 + 230); 
+  }
+  else if (inState==4){
+    fill(226,206,153);
+    text("CHEATING", displayWidth/2 , displayHeight/2 + 230); 
   }
   noFill();
   stroke(226,206,153,inFade);
