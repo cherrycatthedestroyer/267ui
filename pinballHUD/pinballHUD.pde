@@ -119,7 +119,7 @@ void draw(){
 }
 
 void eventListener(){
-  if (light<190){
+  if (light<210){
     ballLost=true;
   }
   else if (pressure<254){
@@ -193,7 +193,7 @@ void handleStates(){
     }
   }
   else if (currentState==3){
-    if (light>190){
+    if (light>210){
       currentState=1;
       ballLost=false;
     }
