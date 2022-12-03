@@ -9,18 +9,24 @@ float light=0;
 float pressure=0;
 int motion=0;
 
+float angle=0;
+
 //main states
-int currentState, state0=0, state1=1, state2=2, state3=3, state4=4;
+int currentState, state0=0, state1=1, state2=2, state3=3, state4=4, state5=5;
 //starting fade in animation
 int startFade;
 
 //sounds
-SoundFile ship, comms, beep, hum, blast, error, ballGone;
+SoundFile ship, comms, beep, hum, blast, error, ballGone, eject;
 
 //graphics
-PImage frame0,frame1,frame2,frame3,bgImg;
-int frameWidth,frameHeight,centerX,centerY;
+PImage frame0,frame1,frame2,frame3,bgImg,cockPitImg;
+int frameWidth,frameHeight,centerX,centerY,screenDescenderY;
 Gif grain,pole,poleOn;
+
+boolean cockPitRight,screenDescend,screenAscend;
+
+ArrayList<Starr> stars = new ArrayList<Starr>();
 
 PFont font;
 
@@ -34,8 +40,7 @@ int [][] polePositions = {{-150,0},{+150,0},{0,-150}};
 boolean ballLost;
 boolean cheating;
 
-int score;
-int penaltyTimer=0;
+int score, lives, endScreenTimer, penaltyTimer, ballLostTimer;
 
 void setup(){
   fullScreen();
@@ -48,6 +53,7 @@ void setup(){
   
   startFade=0;
   
+  eject = new SoundFile(this, "assets/eject.mp3");
   
   ship = new SoundFile(this, "assets/interior.mp3");
   comms = new SoundFile(this, "assets/comms.mp3");
@@ -62,6 +68,10 @@ void setup(){
   ship.loop();
   
   
+  for (int i=0; i<100; i++){
+    stars.add(new Starr ((int) random (displayWidth/50, displayWidth - (displayWidth/50)),(int) random (displayHeight/50, displayHeight - (displayHeight/50))));
+  }
+  cockPitImg = loadImage("assets/cockpit.png");
   bgImg = loadImage("assets/background.png");
   frame0 = loadImage("assets/frame0.png");
   frame1 = loadImage("assets/frame1.png");
@@ -75,6 +85,11 @@ void setup(){
   pole.play();
   poleOn.play();
   
+  cockPitRight=true;
+  screenDescend=true;
+  screenAscend=false;
+  screenDescenderY=-frame0.height;
+  
   frameWidth=880;
   frameHeight=687;
   
@@ -82,6 +97,10 @@ void setup(){
   textFont(font);
   
   score=0;
+  lives=3;
+  endScreenTimer=0;
+  penaltyTimer=0;
+  ballLostTimer=0;
   
   descending=false;
   poleHit=false;
@@ -103,10 +122,19 @@ void setup(){
   cheating = false;
   
   smooth(4);
+  
+  eject.play();
 }
 
 void draw(){
+  background(0);
   drawBackground();
+  translate(displayWidth/2,displayHeight/2);
+  rotater();
+  rotate(angle);
+  drawCockpit();
+  pushMatrix();
+  screenEjecter();
   drawScreenBottom();
   tint(255,startFade);
   drawPoles(currentState);
@@ -116,6 +144,7 @@ void draw(){
   drawScreenTop();
   eventListener();
   handleStates();
+  popMatrix();
 }
 
 void eventListener(){
@@ -183,6 +212,7 @@ void handleStates(){
     }
     
     else if (ballLost==true){
+      lives--;
       currentState=3;
       ballGone.play();
     }
@@ -193,9 +223,18 @@ void handleStates(){
     }
   }
   else if (currentState==3){
-    if (light>210){
-      currentState=1;
+    if (ballLostTimer<20){
+      ballLostTimer++;
+    }
+    else{
       ballLost=false;
+      ballLostTimer=0;
+      if (lives<=0){
+        currentState=5;
+      }
+      else{
+        currentState=1;
+      }
     }
   }
   else if (currentState==4){
@@ -209,6 +248,17 @@ void handleStates(){
         score=0;
         penaltyTimer=0;
       }
+    }
+  }
+  else if (currentState==5){
+    if (endScreenTimer<80){
+      endScreenTimer++;
+    }
+    else{
+      endScreenTimer=0;
+      lives=3;
+      score=0;
+      currentState=0;
     }
   }
 }
@@ -229,24 +279,39 @@ void drawScore(int inFade, int inState){
   
   if (inState==0){
     fill(226,206,153,inFade);
-    text("Play game", displayWidth/2 , displayHeight/2 + 230); 
+    text("Play game", 0 ,  + 230); 
   }
   else if (inState==1){
     fill(222,49,33,inFade);
-    text(formatScore(score), displayWidth/2 , displayHeight/2 + 230); 
+    text(formatScore(score), 0,  + 230);
+    pushMatrix();
+    textAlign(LEFT);
+    textFont(font, 20);
+    fill(222,49,33,inFade);
+    text("Lives: "+lives, -360 , -260);
+    popMatrix();
   }
   else if (inState==3){
     fill(226,206,153);
-    text("Ball lost", displayWidth/2 , displayHeight/2 + 230); 
+    text("Ball lost", 0 ,  + 230); 
   }
   else if (inState==4){
     fill(226,206,153);
-    text("CHEATING", displayWidth/2 , displayHeight/2 + 230); 
+    text("CHEATING", 0 ,  + 230); 
+  }
+  else if (inState==5){
+    fill(226,206,153);
+    text("GAME OVER", 0,  + 110);
+    fill(222,49,33,inFade);
+    textFont(font, 100);
+    text(score, 0 , 0);
   }
   noFill();
-  stroke(226,206,153,inFade);
-  strokeWeight(4);
-  rect(displayWidth/2-225,displayHeight/2 + 160,450,90,25);
+  if (inState!=5){
+    stroke(226,206,153,inFade);
+    strokeWeight(4);
+    rect(-225, + 160,450,90,25);
+  }
   popMatrix();
 }
 
@@ -256,12 +321,12 @@ void drawPoles(int inState){
     tint(255,poleStartFade);
     for (int i=0;i<3;i++){
       rotate(poleAngles[i]);
-      image(pole, displayWidth/2 - 146/2 + polePositions[i][0], displayHeight/2 - 179/2 + polePositions[i][1]);
+      image(pole,  - 146/2 + polePositions[i][0], - 179/2 + polePositions[i][1]);
       rotate(-poleAngles[i]);
       //red pole flashes
       if (poleHits[i] == true){
         tint(255,poleFades[i]);
-        image(poleOn, displayWidth/2 - 146/2 + polePositions[i][0], displayHeight/2 - 179/2 + polePositions[i][1]);
+        image(poleOn, - 146/2 + polePositions[i][0], - 179/2 + polePositions[i][1]);
         tint(255,255);
       }
     }
@@ -274,7 +339,7 @@ void drawPoles(int inState){
 void poleHitEvent(){
   for (int i=0; i<3;i++){
     if (poleHits[i] == true){
-      poleAngles[i]=wobble(poleAngles[i]+1);
+      poleAngles[i]=wobble(poleAngles[i]);
       if (poleDescenders[i]==false){
         if (poleFades[i]<=255){
           poleFades[i]+=85;
@@ -312,9 +377,41 @@ int wobble(int inAngle){
   return inAngle;
 }
 
+void screenEjecter(){
+  if (screenDescend==true && currentState ==0){
+    if (screenDescenderY>-frame0.height/2){
+      screenDescend=false;
+    }
+    translate(0,screenDescenderY);
+    screenDescenderY+=100;
+  }
+}
+
+void rotater(){
+  if (cockPitRight==true){
+    if (angle>0.03){
+      cockPitRight=false;
+    }
+    angle+=0.001;
+  }
+  else{
+    if (angle<-0.03){
+      cockPitRight=true;
+    }
+    angle-=0.001;
+  }
+}
+
 void drawScreenBottom(){
   pushMatrix();
-  translate(displayWidth/2 -frameWidth/2,displayHeight/2 -frameHeight/2);
+  tint(70,70,70);
+  scale(1.39);
+  scale(0.66,0.6);
+  tint(100,100,100);
+  image(bgImg,-bgImg.width/2,-bgImg.height/2);
+  popMatrix();
+  pushMatrix();
+  translate(-frameWidth/2,-frameHeight/2);
   tint(200,180,200);
   image(frame0, 0, 0);
   tint(255);
@@ -323,7 +420,7 @@ void drawScreenBottom(){
 
 void drawScreenTop(){
   pushMatrix();
-  translate(displayWidth/2 -frameWidth/2,displayHeight/2 -frameHeight/2);
+  translate(-frameWidth/2,-frameHeight/2);
 
   pushMatrix();
   
@@ -347,12 +444,19 @@ void drawScreenTop(){
 }
 
 void drawBackground(){
+  for (int i=0; i<stars.size(); i++){
+     Starr s = stars.get(i);
+     s.drawMe();
+     if (s.alpha < 0){
+       stars.remove(s);
+       stars.add(new Starr ((int) random (displayWidth/50, displayWidth - (displayWidth/50)),(int) random (displayHeight/50, displayHeight - (displayHeight/50))));
+     }     
+  }
+}
+
+void drawCockpit(){
   pushMatrix();
-  tint(70,70,70);
-  scale(1.39);
-  image(bgImg,0,-170);
-  scale(0.66,0.6);
   tint(100,100,100);
-  image(bgImg,250,30);
+  image(cockPitImg,-cockPitImg.width/2,-cockPitImg.height/2);
   popMatrix();
 }
