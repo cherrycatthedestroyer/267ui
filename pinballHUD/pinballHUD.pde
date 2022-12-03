@@ -6,7 +6,9 @@ import gifAnimation.*;
 
 Serial myPort;
 float light=0;
-float pressure=0;
+float pressure1=0;
+float pressure2=0;
+float pressure3=0;
 int motion=0;
 
 float angle=0;
@@ -26,7 +28,7 @@ Gif grain,pole,poleOn;
 
 boolean cockPitRight,screenDescend,screenAscend;
 
-ArrayList<Starr> stars = new ArrayList<Starr>();
+ArrayList<Star> stars = new ArrayList<Star>();
 
 PFont font;
 
@@ -41,6 +43,10 @@ boolean ballLost;
 boolean cheating;
 
 int score, lives, endScreenTimer, penaltyTimer, ballLostTimer;
+
+float prevPressure1[];
+float prevPressure2[];
+float prevPressure3[];
 
 void setup(){
   fullScreen();
@@ -62,14 +68,14 @@ void setup(){
   blast = new SoundFile(this, "assets/blaster.mp3");
   error = new SoundFile(this, "assets/error.mp3");
   ballGone = new SoundFile(this, "assets/ballGone.mp3");
-  comms.amp(0.2);
-  ship.amp(0.6);
-  comms.loop();
-  ship.loop();
+  //comms.amp(0.2);
+  //ship.amp(0.6);
+  //comms.loop();
+  //ship.loop();
   
   
   for (int i=0; i<100; i++){
-    stars.add(new Starr ((int) random (displayWidth/50, displayWidth - (displayWidth/50)),(int) random (displayHeight/50, displayHeight - (displayHeight/50))));
+    stars.add(new Star ((int) random (displayWidth/50, displayWidth - (displayWidth/50)),(int) random (displayHeight/50, displayHeight - (displayHeight/50))));
   }
   cockPitImg = loadImage("assets/cockpit.png");
   bgImg = loadImage("assets/background.png");
@@ -101,6 +107,10 @@ void setup(){
   endScreenTimer=0;
   penaltyTimer=0;
   ballLostTimer=0;
+  
+  prevPressure1= new float[15];
+  prevPressure2= new float[15];
+  prevPressure3= new float[15];
   
   descending=false;
   poleHit=false;
@@ -148,11 +158,23 @@ void draw(){
 }
 
 void eventListener(){
-  if (light<210){
+  prevPressure1=shiftArray(pressure1,prevPressure1);
+  prevPressure2=shiftArray(pressure2,prevPressure2);
+  prevPressure3=shiftArray(pressure3,prevPressure3);
+
+  if (light<200){
     ballLost=true;
   }
-  else if (pressure<254){
+  else if (prevPressure1[0]<getAvg(prevPressure1)-10){
     poleHits[0]=true;
+    blast.play();
+  }
+  else if (prevPressure2[0]<getAvg(prevPressure2)-10){
+    poleHits[1]=true;
+    blast.play();
+  }
+  else if (prevPressure3[0]<getAvg(prevPressure3)-10){
+    poleHits[2]=true;
     blast.play();
   }
   else if (motion==1){
@@ -163,11 +185,16 @@ void eventListener(){
 void serialEvent(Serial myPort){
   String inString = myPort.readStringUntil('&');
   String[] lightStr = splitTokens(inString,"a");
-  String[] pressureStr = splitTokens(inString,"b");
+  String[] pressureStr1 = splitTokens(inString,"b");
   String[] motionStr = splitTokens(inString,"c");
+  String[] pressureStr2 = splitTokens(inString,"d");
+  String[] pressureStr3 = splitTokens(inString,"e");
   
   light = map(int(lightStr[0]),0,1023,0,255);
-  pressure = map(int(pressureStr[1]),0,1023,0,255);
+  //pressure = map(int(pressureStr[1]),0,1023,0,255);
+  pressure1=int(pressureStr1[1]);
+  pressure2=int(pressureStr2[1]);
+  pressure3=int(pressureStr3[1]);
   motion=int(motionStr[1]);
 }
 
@@ -445,11 +472,11 @@ void drawScreenTop(){
 
 void drawBackground(){
   for (int i=0; i<stars.size(); i++){
-     Starr s = stars.get(i);
+     Star s = stars.get(i);
      s.drawMe();
      if (s.alpha < 0){
        stars.remove(s);
-       stars.add(new Starr ((int) random (displayWidth/50, displayWidth - (displayWidth/50)),(int) random (displayHeight/50, displayHeight - (displayHeight/50))));
+       stars.add(new Star ((int) random (displayWidth/50, displayWidth - (displayWidth/50)),(int) random (displayHeight/50, displayHeight - (displayHeight/50))));
      }     
   }
 }
@@ -459,4 +486,21 @@ void drawCockpit(){
   tint(100,100,100);
   image(cockPitImg,-cockPitImg.width/2,-cockPitImg.height/2);
   popMatrix();
+}
+
+float [] shiftArray(float currentPressure, float [] list){
+  float []shifted = new float[15];
+  shifted[0] = currentPressure;
+  for (int i=1; i<15; i++){
+    shifted[i] = list[i-1];
+  }
+  return(shifted);
+}
+
+float getAvg(float [] list){
+  float sum = 0;
+  for (int i=1;i<15;i++){
+    sum+=list[i];
+  }
+  return (sum/15);
 }

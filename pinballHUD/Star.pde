@@ -1,11 +1,11 @@
-class Starr{
+class Star{
   
   int x; 
   int y; 
   int alpha = 0;
   int timer = (int) random (50, 100); //duration of max alpha (how long star stays)
   
-    Starr(int x, int y){
+    Star(int x, int y){
       this.x=x;
       this.y=y;
     }
